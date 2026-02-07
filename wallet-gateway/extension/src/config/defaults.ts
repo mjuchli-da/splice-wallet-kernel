@@ -1,0 +1,192 @@
+// Copyright (c) 2025-2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+/**
+ * Default IDPs and networks pre-loaded into the extension.
+ * Mirrors the configuration from wallet-gateway/test/config.json.
+ */
+
+import type { WalletStoreConfig } from '../store/wallet-store'
+
+export const defaultConfig: WalletStoreConfig = {
+    idps: [
+        {
+            id: 'idp-mock-oauth',
+            type: 'oauth',
+            issuer: 'http://127.0.0.1:8889',
+            configUrl: 'http://127.0.0.1:8889/.well-known/openid-configuration',
+        },
+        {
+            id: 'idp-devnet-auth0',
+            type: 'oauth',
+            issuer: 'https://canton-registry-app-dev-1.eu.auth0.com/',
+            configUrl:
+                'https://canton-registry-app-dev-1.eu.auth0.com/.well-known/openid-configuration',
+        },
+        {
+            id: 'idp-self-signed',
+            type: 'self_signed',
+            issuer: 'unsafe-auth',
+        },
+    ],
+    networks: [
+        {
+            id: 'canton:local-oauth',
+            name: 'Local (OAuth IDP)',
+            description: 'Mock OAuth IDP',
+            synchronizerId:
+                'wallet::1220e7b23ea52eb5c672fb0b1cdbc916922ffed3dd7676c223a605664315e2d43edd',
+            identityProviderId: 'idp-mock-oauth',
+            auth: {
+                method: 'authorization_code',
+                clientId: 'operator',
+                scope: 'openid daml_ledger_api offline_access',
+                audience:
+                    'https://daml.com/jwt/aud/participant/participant1::1220d44fc1c3ba0b5bdf7b956ee71bc94ebe2d23258dc268fdf0824fbaeff2c61424',
+            },
+            adminAuth: {
+                method: 'client_credentials',
+                scope: 'daml_ledger_api',
+                audience:
+                    'https://daml.com/jwt/aud/participant/participant1::1220d44fc1c3ba0b5bdf7b956ee71bc94ebe2d23258dc268fdf0824fbaeff2c61424',
+                clientId: 'participant_admin',
+                clientSecret: 'admin-client-secret',
+            },
+            ledgerApi: {
+                baseUrl: 'http://127.0.0.1:5003',
+            },
+        },
+        {
+            id: 'canton:local-oauth-2',
+            name: 'Local (OAuth IDP - 2)',
+            description: 'Mock OAuth IDP - 2',
+            synchronizerId:
+                'wallet::1220e7b23ea52eb5c672fb0b1cdbc916922ffed3dd7676c223a605664315e2d43edd',
+            identityProviderId: 'idp-mock-oauth',
+            auth: {
+                method: 'authorization_code',
+                clientId: 'operator2',
+                scope: 'openid daml_ledger_api offline_access',
+                audience:
+                    'https://daml.com/jwt/aud/participant/participant1::1220d44fc1c3ba0b5bdf7b956ee71bc94ebe2d23258dc268fdf0824fbaeff2c61424',
+            },
+            adminAuth: {
+                method: 'client_credentials',
+                scope: 'daml_ledger_api',
+                audience:
+                    'https://daml.com/jwt/aud/participant/participant1::1220d44fc1c3ba0b5bdf7b956ee71bc94ebe2d23258dc268fdf0824fbaeff2c61424',
+                clientId: 'participant_admin',
+                clientSecret: 'admin-client-secret',
+            },
+            ledgerApi: {
+                baseUrl: 'http://127.0.0.1:5003',
+            },
+        },
+        {
+            id: 'canton:local-oauth-client-credentials',
+            name: 'Local (OAuth IDP - Client Credentials)',
+            description: 'Mock OAuth IDP (Client Credentials)',
+            synchronizerId:
+                'wallet::1220e7b23ea52eb5c672fb0b1cdbc916922ffed3dd7676c223a605664315e2d43edd',
+            identityProviderId: 'idp-mock-oauth',
+            auth: {
+                method: 'client_credentials',
+                clientId: 'operator',
+                clientSecret: 'your-client-secret',
+                audience:
+                    'https://daml.com/jwt/aud/participant/participant1::1220d44fc1c3ba0b5bdf7b956ee71bc94ebe2d23258dc268fdf0824fbaeff2c61424',
+                scope: 'openid daml_ledger_api offline_access',
+            },
+            adminAuth: {
+                method: 'client_credentials',
+                scope: 'daml_ledger_api',
+                audience:
+                    'https://daml.com/jwt/aud/participant/participant1::1220d44fc1c3ba0b5bdf7b956ee71bc94ebe2d23258dc268fdf0824fbaeff2c61424',
+                clientId: 'participant_admin',
+                clientSecret: 'admin-client-secret',
+            },
+            ledgerApi: {
+                baseUrl: 'http://127.0.0.1:5003',
+            },
+        },
+        {
+            id: 'canton:local-self-signed',
+            name: 'Local (Self signed)',
+            description: 'Mock OAuth IDP',
+            synchronizerId:
+                'wallet::1220e7b23ea52eb5c672fb0b1cdbc916922ffed3dd7676c223a605664315e2d43edd',
+            identityProviderId: 'idp-self-signed',
+            auth: {
+                method: 'self_signed',
+                issuer: 'self-signed',
+                audience:
+                    'https://daml.com/jwt/aud/participant/participant1::1220d44fc1c3ba0b5bdf7b956ee71bc94ebe2d23258dc268fdf0824fbaeff2c61424',
+                scope: 'openid daml_ledger_api offline_access',
+                clientId: 'operator',
+                clientSecret: 'unsafe',
+            },
+            adminAuth: {
+                method: 'self_signed',
+                issuer: 'self-signed',
+                scope: 'daml_ledger_api',
+                audience:
+                    'https://daml.com/jwt/aud/participant/participant1::1220d44fc1c3ba0b5bdf7b956ee71bc94ebe2d23258dc268fdf0824fbaeff2c61424',
+                clientId: 'participant_admin',
+                clientSecret: 'admin-client-secret',
+            },
+            ledgerApi: {
+                baseUrl: 'http://127.0.0.1:5003',
+            },
+        },
+        {
+            id: 'canton:devnet-auth0',
+            name: 'Devnet (Auth0)',
+            description: "devnet configuration pointing to CNU's lab-operator",
+            synchronizerId:
+                'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a',
+            identityProviderId: 'idp-devnet-auth0',
+            auth: {
+                method: 'authorization_code',
+                scope: 'daml_ledger_api',
+                audience: 'https://canton.network.global',
+                clientId: 'EQrKrlT5Z2B3F6TXDepQMGC4YdfnlLLR',
+            },
+            adminAuth: {
+                method: 'client_credentials',
+                scope: 'daml_ledger_api',
+                audience: 'https://canton.network.global',
+                clientId: 'uHh5IA2hQWc78HHEPDJTmZm6GYhJbfev',
+                clientSecret: 'GET_FROM_AUTH0',
+            },
+            ledgerApi: {
+                baseUrl:
+                    'https://lab-operator.utility.cnu.devnet.da-int.net/api/json-api',
+            },
+        },
+        {
+            id: 'canton:localnet',
+            name: 'LocalNet',
+            description: 'LocalNet configuration',
+            identityProviderId: 'idp-self-signed',
+            auth: {
+                method: 'self_signed',
+                issuer: 'self-signed',
+                audience: 'https://canton.network.global',
+                scope: 'openid daml_ledger_api offline_access',
+                clientId: 'ledger-api-user',
+                clientSecret: 'unsafe',
+            },
+            adminAuth: {
+                method: 'self_signed',
+                issuer: 'self-signed',
+                scope: 'openid daml_ledger_api offline_access',
+                audience: 'https://canton.network.global',
+                clientId: 'ledger-api-user',
+                clientSecret: 'unsafe',
+            },
+            ledgerApi: {
+                baseUrl: 'http://localhost:2975',
+            },
+        },
+    ],
+}

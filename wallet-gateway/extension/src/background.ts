@@ -1,9 +1,17 @@
 // Copyright (c) 2025-2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+/**
+ * Background service worker for the Splice Wallet Gateway browser extension.
+ *
+ * Responsibilities:
+ * - Initializes and manages the in-memory wallet store and signing store
+ * - Handles dapp API requests (from content script → dapps)
+ * - Handles user API requests (from extension pages)
+ * - Routes messages and maintains auth context
+ */
+
 import Browser from 'webextension-polyfill'
-import { dappController } from './dapp-api/controller'
-import { Methods } from './dapp-api/rpc-gen'
 import {
     isSpliceMessage,
     ResponsePayload,
@@ -11,8 +19,43 @@ import {
     WalletEvent,
 } from '@canton-network/core-types'
 import { rpcErrors } from '@canton-network/core-rpc-errors'
+import { SigningProvider } from '@canton-network/core-signing-lib'
 
-const controller = dappController()
+import { WalletStore } from './store/wallet-store'
+import { SigningStoreInMemory } from './store/signing-store'
+import { BrowserInternalSigningDriver } from './signing/driver'
+import { authContextFromToken } from './auth/auth-service'
+import { dappController } from './dapp-api/controller'
+import { userController } from './user-api/controller'
+import { Methods as DappMethods } from './dapp-api/rpc-gen'
+import { Methods as UserMethods } from './user-api/rpc-gen/index.js'
+import { createLogger } from './lib/logger'
+import {
+    USER_API_REQUEST,
+    type UserApiMessage,
+} from './lib/extension-transport'
+import { defaultConfig } from './config/defaults'
+
+const logger = createLogger('background')
+
+// ─── Store Initialization ───────────────────────────────────────────────────
+
+const walletStore = new WalletStore(defaultConfig)
+
+const signingStore = new SigningStoreInMemory()
+
+const signingDriver = new BrowserInternalSigningDriver(signingStore)
+
+const drivers = {
+    [SigningProvider.PARTICIPANT]: {
+        partyMode: 'internal' as const,
+        signingProvider: SigningProvider.PARTICIPANT,
+        controller: () => ({}) as Record<string, never>,
+    },
+    [SigningProvider.WALLET_KERNEL]: signingDriver,
+}
+
+// ─── JSON-RPC Response Helper ───────────────────────────────────────────────
 
 function jsonRpcResponse(
     id: string | number | null,
@@ -21,98 +64,181 @@ function jsonRpcResponse(
     return {
         response: {
             jsonrpc: '2.0',
-            id, // id should be set based on the request context
+            id,
             ...payload,
         },
         type: WalletEvent.SPLICE_WALLET_RESPONSE,
     }
 }
 
-// Main RPC handler for incoming JSON-RPC requests
-async function handleRpcRequest(message: unknown): Promise<SpliceMessage> {
-    return new Promise((resolve, reject) => {
-        if (
-            isSpliceMessage(message) &&
-            message.type === WalletEvent.SPLICE_WALLET_REQUEST
-        ) {
-            console.log('Processing JSON-RPC request:', message.request)
-            const { request } = message
+// ─── Dapp API Handler ───────────────────────────────────────────────────────
 
-            const id = request.id || null
-            const method = request.method as keyof Methods
+async function handleDappRpcRequest(
+    message: SpliceMessage & { type: typeof WalletEvent.SPLICE_WALLET_REQUEST }
+): Promise<SpliceMessage> {
+    const { request } = message
+    const id = request.id || null
+    const method = request.method as keyof DappMethods
 
-            const methodFn = controller[method]
+    // For dapp API, we rely on an active session. Check if we have stored auth context.
+    let authContext = undefined
+    const storedToken = await getActiveAccessToken()
+    if (storedToken) {
+        authContext = authContextFromToken(storedToken)
+    }
 
-            if (!methodFn) {
-                resolve(
-                    jsonRpcResponse(id, {
-                        error: rpcErrors.methodNotFound({
-                            message: `Method ${method} not found`,
-                        }),
-                    })
-                )
-            }
+    const store = authContext
+        ? walletStore.withAuthContext(authContext)
+        : walletStore
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            methodFn(request.params as any)
-                .then((result) => resolve(jsonRpcResponse(id, { result })))
-                .catch((error) =>
-                    reject(
-                        jsonRpcResponse(id, {
-                            error: rpcErrors.internal({
-                                message:
-                                    error instanceof Error
-                                        ? error.message
-                                        : String(error),
-                            }),
-                        })
-                    )
-                )
-        } else {
-            reject()
-        }
-    })
+    const controller = dappController(store, logger, null, authContext)
+
+    const methodFn = controller[method]
+
+    if (!methodFn) {
+        return jsonRpcResponse(id, {
+            error: rpcErrors.methodNotFound({
+                message: `Method ${method} not found`,
+            }),
+        })
+    }
+
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await (methodFn as any)(request.params)
+        return jsonRpcResponse(id, { result })
+    } catch (error) {
+        return jsonRpcResponse(id, {
+            error: rpcErrors.internal({
+                message: error instanceof Error ? error.message : String(error),
+            }),
+        })
+    }
 }
 
-// Listen for messages from the dapp
-// and handle them as JSON-RPC requests
-Browser.runtime.onMessage.addListener((message, _, sendResponse) => {
-    console.log('Received message in background script:', message)
+// ─── User API Handler ───────────────────────────────────────────────────────
 
+async function handleUserApiRequest(
+    message: UserApiMessage
+): Promise<ResponsePayload> {
+    const { request, accessToken } = message
+    const method = request.method as keyof UserMethods
+
+    const authContext = accessToken
+        ? authContextFromToken(accessToken)
+        : undefined
+
+    const store = authContext
+        ? walletStore.withAuthContext(authContext)
+        : walletStore
+
+    const controller = userController(store, authContext, drivers, logger)
+
+    const methodFn = controller[method]
+
+    if (!methodFn) {
+        return {
+            error: {
+                code: -32601,
+                message: `Method ${method} not found`,
+            },
+        }
+    }
+
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await (methodFn as any)(request.params)
+        return { result }
+    } catch (error) {
+        logger.error(`${method} error: ${error}`)
+        return {
+            error: {
+                code: -32603,
+                message: error instanceof Error ? error.message : String(error),
+            },
+        }
+    }
+}
+
+// ─── Active Token Storage ───────────────────────────────────────────────────
+
+// Store the active access token so the dapp API can use it
+let activeAccessToken: string | undefined
+
+async function getActiveAccessToken(): Promise<string | undefined> {
+    // Try to get from browser storage first
+    try {
+        const result = await Browser.storage.local.get('activeAccessToken')
+        return result.activeAccessToken || activeAccessToken
+    } catch {
+        return activeAccessToken
+    }
+}
+
+async function setActiveAccessToken(token: string | undefined): Promise<void> {
+    activeAccessToken = token
+    try {
+        if (token) {
+            await Browser.storage.local.set({ activeAccessToken: token })
+        } else {
+            await Browser.storage.local.remove('activeAccessToken')
+        }
+    } catch {
+        // Storage not available, just use in-memory
+    }
+}
+
+// ─── Message Listener ───────────────────────────────────────────────────────
+
+Browser.runtime.onMessage.addListener((message) => {
+    logger.debug('Received message in background script')
+
+    // Handle User API requests from extension pages
+    if (
+        message &&
+        typeof message === 'object' &&
+        message.type === USER_API_REQUEST
+    ) {
+        const userMsg = message as UserApiMessage
+
+        // Track the access token for dapp API use
+        if (userMsg.accessToken) {
+            setActiveAccessToken(userMsg.accessToken)
+        }
+
+        // If the method is removeSession, clear the stored token
+        if (userMsg.request.method === 'removeSession') {
+            setActiveAccessToken(undefined)
+        }
+
+        return handleUserApiRequest(userMsg)
+    }
+
+    // Handle Dapp API requests from content script
     if (isSpliceMessage(message)) {
         if (message.type === WalletEvent.SPLICE_WALLET_REQUEST) {
-            handleRpcRequest(message)
-                .then(sendResponse)
-                .catch((error: unknown) => {
-                    if (isSpliceMessage(error) && 'error' in error) {
-                        sendResponse(error)
-                    } else {
-                        console.error('No response generated for the request')
-                        sendResponse(
-                            jsonRpcResponse(null, {
-                                error: rpcErrors.internal({
-                                    message: 'Internal error',
-                                    data: 'No response generated for the request',
-                                }),
-                            })
-                        )
-                    }
-                })
-        } else if (message.type === WalletEvent.SPLICE_WALLET_EXT_OPEN) {
-            // Handle the request to open the wallet UI
+            return handleDappRpcRequest(
+                message as SpliceMessage & {
+                    type: typeof WalletEvent.SPLICE_WALLET_REQUEST
+                }
+            )
+        }
+
+        if (message.type === WalletEvent.SPLICE_WALLET_EXT_OPEN) {
+            // Open wallet UI in a popup window
             Browser.windows.create({
-                url: message.url,
+                url: (message as SpliceMessage & { url: string }).url,
                 type: 'popup',
                 width: 400,
                 height: 600,
             })
-            sendResponse(null)
-        } else {
-            sendResponse(null)
+            return Promise.resolve(null)
         }
-    } else {
-        sendResponse(null)
+
+        return Promise.resolve(null)
     }
 
-    return true // Indicates that the response will be sent asynchronously
+    return Promise.resolve(null)
 })
+
+logger.info('Splice Wallet Gateway extension background script initialized')
