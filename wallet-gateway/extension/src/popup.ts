@@ -1,6 +1,9 @@
 // Copyright (c) 2025-2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-export const DEFAULT_PAGE = 'wallets'
-export const LOGIN_PAGE = 'login'
-export const TOKEN_EXPIRED_SKEW_MS = 5000
+/**
+ * Single entry point for the extension popup.
+ * Imports the app shell (which imports all page components).
+ */
+
+import './pages/index'

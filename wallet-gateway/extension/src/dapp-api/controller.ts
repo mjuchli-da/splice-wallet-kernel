@@ -32,7 +32,7 @@ export const dappController = (
     return buildController({
         connect: async () => {
             if (!context || !(await store.getSession())) {
-                const userUrl = Browser.runtime.getURL('pages/login.html')
+                const userUrl = Browser.runtime.getURL('pages/user.html#login')
                 return {
                     isConnected: false,
                     isNetworkConnected: false,
@@ -186,7 +186,7 @@ export const dappController = (
             store.setTransaction(transaction)
 
             const approveUrl = Browser.runtime.getURL(
-                `pages/approve.html?commandId=${commandId}`
+                `pages/user.html#approve?commandId=${commandId}`
             )
             return {
                 userUrl: approveUrl,
@@ -198,7 +198,7 @@ export const dappController = (
             )
         },
         status: async () => {
-            const userUrl = Browser.runtime.getURL('pages/login.html')
+            const userUrl = Browser.runtime.getURL('pages/user.html#login')
 
             if (!context || !(await store.getSession())) {
                 return {

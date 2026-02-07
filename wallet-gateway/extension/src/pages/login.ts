@@ -5,13 +5,12 @@ import { html, css, LitElement } from 'lit'
 import { customElement, state } from 'lit/decorators.js'
 import { createUserClient } from './rpc-client'
 import { stateManager } from './state-manager'
-import { redirectToIntendedOrDefault, addUserSession } from './index'
+import { redirectToIntendedOrDefault, addUserSession } from './navigation'
 import {
     AuthTokenProviderSelfSigned,
     ClientCredentials,
 } from '@canton-network/core-wallet-auth'
-
-import './index'
+import Browser from 'webextension-polyfill'
 
 declare const chrome: {
     identity?: {

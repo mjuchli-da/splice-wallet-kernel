@@ -9,14 +9,8 @@ const config: esbuild.BuildOptions = {
         'src/background.ts',
         // Content script (injected into web pages)
         'src/content-script.ts',
-        // Popup component
-        'src/components/user-ui.ts',
-        // Page entry points
-        'src/pages/login.ts',
-        'src/pages/wallets.ts',
-        'src/pages/settings.ts',
-        'src/pages/approve.ts',
-        'src/pages/transactions.ts',
+        // Single popup entry point (includes all pages)
+        'src/popup.ts',
     ],
     bundle: true,
     outdir: 'dist',
@@ -25,7 +19,6 @@ const config: esbuild.BuildOptions = {
     sourcemap: true,
     target: ['chrome100', 'firefox100'],
     define: {
-        // Polyfill for node:crypto.randomUUID used by some packages
         'process.env.NODE_ENV': '"production"',
     },
     plugins: [

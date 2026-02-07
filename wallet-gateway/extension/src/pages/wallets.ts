@@ -6,7 +6,6 @@ import { customElement, query, state } from 'lit/decorators.js'
 import { Wallet } from '@canton-network/core-wallet-store'
 import { createUserClient } from './rpc-client'
 import { stateManager } from './state-manager'
-import './index'
 
 @customElement('ext-wallets')
 export class WalletsPage extends LitElement {

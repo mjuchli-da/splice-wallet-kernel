@@ -6,8 +6,7 @@ import { customElement, state } from 'lit/decorators.js'
 import { createUserClient } from './rpc-client'
 import { stateManager } from './state-manager'
 import { parsePreparedTransaction, PreparedTransactionParsed } from './decode'
-import Browser from 'webextension-polyfill'
-import './index'
+import { navigateTo } from './navigation'
 
 interface TransactionInfo {
     commandId: string
@@ -153,12 +152,10 @@ export class TransactionsPage extends LitElement {
                             <div class="tx-actions">
                                 <button
                                     class="btn"
-                                    @click=${() => {
-                                        window.location.href =
-                                            Browser.runtime.getURL(
-                                                `pages/approve.html?commandId=${tx.commandId}`
-                                            )
-                                    }}
+                                    @click=${() =>
+                                        navigateTo('approve', {
+                                            commandId: tx.commandId,
+                                        })}
                                 >
                                     Review
                                 </button>

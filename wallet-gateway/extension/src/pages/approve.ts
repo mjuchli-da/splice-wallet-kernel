@@ -2,16 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { html, css, LitElement, nothing } from 'lit'
-import { customElement, state } from 'lit/decorators.js'
+import { customElement, property, state } from 'lit/decorators.js'
 import { createUserClient } from './rpc-client'
 import { stateManager } from './state-manager'
 import { parsePreparedTransaction, PreparedTransactionParsed } from './decode'
-import './index'
 
 @customElement('ext-approve')
 export class ApprovePage extends LitElement {
+    @property({ type: String }) accessor commandId = ''
     @state() accessor loading = false
-    @state() accessor commandId = ''
     @state() accessor partyId = ''
     @state() accessor txHash = ''
     @state() accessor tx = ''
@@ -128,9 +127,16 @@ export class ApprovePage extends LitElement {
 
     connectedCallback(): void {
         super.connectedCallback()
-        const url = new URL(window.location.href)
-        this.commandId = url.searchParams.get('commandId') || ''
-        this.updateState()
+        // commandId is passed as a property from the router
+        // Fallback: check URL hash for external opens (e.g. from DApp flow)
+        if (!this.commandId) {
+            const hash = window.location.hash.replace('#', '')
+            const params = new URLSearchParams(hash.split('?')[1] || '')
+            this.commandId = params.get('commandId') || ''
+        }
+        if (this.commandId) {
+            this.updateState()
+        }
     }
 
     private async updateState() {
@@ -189,10 +195,6 @@ export class ApprovePage extends LitElement {
             this.message = 'Transaction executed successfully'
             this.messageType = 'info'
             this.status = 'executed'
-
-            if (window.opener) {
-                setTimeout(() => window.close(), 1000)
-            }
         } catch (err) {
             console.error(err)
             this.message =
