@@ -5,7 +5,7 @@
  * Background service worker for the Splice Wallet Gateway browser extension.
  *
  * Responsibilities:
- * - Initializes and manages the in-memory wallet store and signing store
+ * - Initializes and manages the persistent extension store and signing store
  * - Handles dapp API requests (from content script → dapps)
  * - Handles user API requests (from extension pages)
  * - Routes messages and maintains auth context
@@ -20,9 +20,9 @@ import {
 } from '@canton-network/core-types'
 import { rpcErrors } from '@canton-network/core-rpc-errors'
 import { SigningProvider } from '@canton-network/core-signing-lib'
+import { ExtensionStore } from '@canton-network/core-wallet-store-extension'
 
-import { WalletStore } from './store/wallet-store'
-import { SigningStoreInMemory } from './store/signing-store'
+import { SigningStoreExtension } from '@canton-network/core-signing-store-extension'
 import { BrowserInternalSigningDriver } from './signing/driver'
 import { authContextFromToken } from './auth/auth-service'
 import { dappController } from './dapp-api/controller'
@@ -40,9 +40,14 @@ const logger = createLogger('background')
 
 // ─── Store Initialization ───────────────────────────────────────────────────
 
-const walletStore = new WalletStore(defaultConfig)
+const walletStore = new ExtensionStore(Browser.storage.local)
 
-const signingStore = new SigningStoreInMemory()
+// Initialize with default networks/IDPs (only writes if storage is empty)
+walletStore.initialize(defaultConfig).catch((e) => {
+    logger.error(`Failed to initialize store defaults: ${e}`)
+})
+
+const signingStore = new SigningStoreExtension(Browser.storage.local)
 
 const signingDriver = new BrowserInternalSigningDriver(signingStore)
 

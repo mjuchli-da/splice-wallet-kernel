@@ -6,9 +6,9 @@
  * Mirrors the configuration from wallet-gateway/test/config.json.
  */
 
-import type { WalletStoreConfig } from '../store/wallet-store'
+import type { ExtensionStoreDefaults } from '@canton-network/core-wallet-store-extension'
 
-export const defaultConfig: WalletStoreConfig = {
+export const defaultConfig: ExtensionStoreDefaults = {
     idps: [
         {
             id: 'idp-mock-oauth',
