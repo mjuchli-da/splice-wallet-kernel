@@ -3,10 +3,10 @@
 
 import { PartyId } from '@canton-network/core-types'
 import { Types } from '@canton-network/core-ledger-client'
-import { SignedTransaction } from '../transactions/signed'
+import { SignedTransaction } from '../transactions/signed.js'
+import { Ops } from '@canton-network/core-provider-ledger'
 
 export type PrepareOptions = {
-    userId: string
     partyId: PartyId
     commands: WrappedCommand | WrappedCommand[] | unknown
     commandId?: string
@@ -16,7 +16,6 @@ export type PrepareOptions = {
 
 export type ExecuteOptions = {
     submissionId?: string
-    userId: string
     partyId: PartyId
 }
 
@@ -34,4 +33,6 @@ export type WrappedCommand<
 export type ExecuteFn = (
     signed: SignedTransaction,
     options: ExecuteOptions
-) => Promise<string>
+) => Promise<
+    Ops.PostV2InteractiveSubmissionExecuteAndWait['ledgerApi']['result']
+>
