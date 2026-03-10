@@ -144,8 +144,8 @@ export class LoginPage extends LitElement {
             // Load networks and IDPs (these don't require auth)
             const userClient = createUserClient(stateManager.accessToken.get())
             const [networkRes, idpRes] = await Promise.all([
-                userClient.request('listNetworks'),
-                userClient.request('listIdps'),
+                userClient.request({ method: 'listNetworks' }),
+                userClient.request({ method: 'listIdps' }),
             ])
             this.networks = networkRes.networks as NetworkInfo[]
             this.idps = idpRes.idps as IdpInfo[]

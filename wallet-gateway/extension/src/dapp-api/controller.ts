@@ -45,7 +45,7 @@ export const dappController = (
 
             // Check network connectivity
             let isNetworkConnected = false
-            let networkReason = 'Unknown'
+            let networkReason: string
 
             try {
                 const res = await fetch(
@@ -221,7 +221,7 @@ export const dappController = (
             const network = await store.getCurrentNetwork()
 
             let isNetworkConnected = false
-            let networkReason = 'Unknown'
+            let networkReason: string
 
             try {
                 const res = await fetch(

@@ -143,8 +143,11 @@ export class ApprovePage extends LitElement {
         const userClient = createUserClient(stateManager.accessToken.get())
 
         try {
-            const result = await userClient.request('getTransaction', {
-                commandId: this.commandId,
+            const result = await userClient.request({
+                method: 'getTransaction',
+                params: {
+                    commandId: this.commandId,
+                },
             })
             this.txHash = result.preparedTransactionHash
             this.tx = result.preparedTransaction
@@ -162,7 +165,10 @@ export class ApprovePage extends LitElement {
         }
 
         try {
-            const wallets = await userClient.request('listWallets', {})
+            const wallets = await userClient.request({
+                method: 'listWallets',
+                params: {},
+            })
             this.partyId =
                 wallets.find((w) => w.primary === true)?.partyId || ''
         } catch (e) {
@@ -178,18 +184,24 @@ export class ApprovePage extends LitElement {
         try {
             const userClient = createUserClient(stateManager.accessToken.get())
 
-            const { signature, signedBy } = await userClient.request('sign', {
-                commandId: this.commandId,
-                partyId: this.partyId,
-                preparedTransactionHash: this.txHash,
-                preparedTransaction: this.tx,
+            const { signature, signedBy } = await userClient.request({
+                method: 'sign',
+                params: {
+                    commandId: this.commandId,
+                    partyId: this.partyId,
+                    preparedTransactionHash: this.txHash,
+                    preparedTransaction: this.tx,
+                },
             })
 
-            await userClient.request('execute', {
-                signature,
-                signedBy,
-                commandId: this.commandId,
-                partyId: this.partyId,
+            await userClient.request({
+                method: 'execute',
+                params: {
+                    signature,
+                    signedBy,
+                    commandId: this.commandId,
+                    partyId: this.partyId,
+                },
             })
 
             this.message = 'Transaction executed successfully'

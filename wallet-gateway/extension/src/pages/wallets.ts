@@ -12,6 +12,8 @@ export class WalletsPage extends LitElement {
     @state() accessor wallets: Wallet[] | undefined = undefined
     @state() accessor loading = false
     @state() accessor showCreateCard = false
+    @state() accessor syncErrorMessage: string | null = null
+    @state() accessor showSyncErrorDetails = false
 
     @query('#party-id-hint') accessor _partyHintInput: HTMLInputElement | null =
         null
@@ -118,6 +120,39 @@ export class WalletsPage extends LitElement {
         .sync-btn:hover {
             background: #d2e3fc;
         }
+        .sync-error {
+            margin: 0.75rem 0 1rem 0;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid #f5c2c7;
+            background: #f8d7da;
+            color: #842029;
+        }
+        .sync-error-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+        .sync-error-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        .sync-error-toggle {
+            border: 1px solid #842029;
+            background: transparent;
+            color: #842029;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            padding: 0.2rem 0.45rem;
+            cursor: pointer;
+        }
+        .sync-error-details {
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
     `
 
     async connectedCallback(): Promise<void> {
@@ -128,7 +163,10 @@ export class WalletsPage extends LitElement {
     private async updateWallets() {
         const userClient = createUserClient(stateManager.accessToken.get())
         try {
-            const wallets = await userClient.request('listWallets', {})
+            const wallets = await userClient.request({
+                method: 'listWallets',
+                params: {},
+            })
             this.wallets = wallets || []
         } catch (e) {
             console.error('Failed to load wallets:', e)
@@ -138,20 +176,27 @@ export class WalletsPage extends LitElement {
 
     private async handleSync() {
         this.loading = true
+        this.syncErrorMessage = null
+        this.showSyncErrorDetails = false
         try {
             const userClient = createUserClient(stateManager.accessToken.get())
-            await userClient.request('syncWallets')
+            await userClient.request({ method: 'syncWallets' })
             await this.updateWallets()
         } catch (e) {
             console.error('Sync failed:', e)
+            this.syncErrorMessage =
+                e instanceof Error ? e.message : 'Unknown sync error'
         }
         this.loading = false
     }
 
     private async _setPrimary(wallet: Wallet) {
         const userClient = createUserClient(stateManager.accessToken.get())
-        await userClient.request('setPrimaryWallet', {
-            partyId: wallet.partyId,
+        await userClient.request({
+            method: 'setPrimaryWallet',
+            params: {
+                partyId: wallet.partyId,
+            },
         })
         await this.updateWallets()
     }
@@ -170,10 +215,13 @@ export class WalletsPage extends LitElement {
 
         try {
             const userClient = createUserClient(stateManager.accessToken.get())
-            await userClient.request('createWallet', {
-                primary,
-                partyHint,
-                signingProviderId,
+            await userClient.request({
+                method: 'createWallet',
+                params: {
+                    primary,
+                    partyHint,
+                    signingProviderId,
+                },
             })
         } catch (e) {
             console.error('Create wallet failed:', e)
@@ -206,7 +254,32 @@ export class WalletsPage extends LitElement {
                     ${this.showCreateCard ? 'Close' : 'Create New'}
                 </button>
             </div>
-
+            ${this.syncErrorMessage
+                ? html`
+                      <div class="sync-error" role="alert">
+                          <div class="sync-error-header">
+                              <span class="sync-error-title"
+                                  >Wallet sync failed.</span
+                              >
+                              <button
+                                  class="sync-error-toggle"
+                                  @click=${() =>
+                                      (this.showSyncErrorDetails =
+                                          !this.showSyncErrorDetails)}
+                              >
+                                  ${this.showSyncErrorDetails
+                                      ? 'Hide details'
+                                      : 'Show details'}
+                              </button>
+                          </div>
+                          ${this.showSyncErrorDetails
+                              ? html`<div class="sync-error-details">
+                                    ${this.syncErrorMessage}
+                                </div>`
+                              : ''}
+                      </div>
+                  `
+                : ''}
             ${this.wallets === undefined ? html`<p>Loading wallets...</p>` : ''}
             ${this.showCreateCard
                 ? html`

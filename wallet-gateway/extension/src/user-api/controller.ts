@@ -127,18 +127,24 @@ export const userController = (
                     userId
                 )
 
-            let partyId = ''
-            let publicKey = ''
-            let namespace = ''
             const walletStatus = 'allocated'
+            let walletIdentity:
+                | {
+                      partyId: string
+                      publicKey: string
+                      namespace: string
+                  }
+                | undefined
 
             switch (signingProviderId) {
                 case SigningProvider.PARTICIPANT: {
                     // For participant-managed keys, we just create a wallet entry
                     // The party should already exist or will be allocated externally
-                    partyId = `${partyHint}::participant`
-                    namespace = 'participant'
-                    publicKey = 'participant'
+                    walletIdentity = {
+                        partyId: `${partyHint}::participant`,
+                        namespace: 'participant',
+                        publicKey: 'participant',
+                    }
                     break
                 }
                 case SigningProvider.WALLET_KERNEL: {
@@ -158,10 +164,14 @@ export const userController = (
                         )
                     }
 
-                    publicKey = key.publicKey
+                    const publicKey = key.publicKey
                     // Create a fingerprint-like namespace from the public key
-                    namespace = publicKey.substring(0, 16)
-                    partyId = `${partyHint}::${namespace}`
+                    const namespace = publicKey.substring(0, 16)
+                    walletIdentity = {
+                        partyId: `${partyHint}::${namespace}`,
+                        namespace,
+                        publicKey,
+                    }
                     break
                 }
                 default:
@@ -170,15 +180,21 @@ export const userController = (
                     )
             }
 
+            if (!walletIdentity) {
+                throw new Error(
+                    `Unable to derive wallet identity for signing provider: ${signingProviderId}`
+                )
+            }
+
             const wallet = {
                 signingProviderId,
                 networkId: network.id,
                 status: walletStatus,
                 primary: primary ?? false,
-                publicKey,
-                partyId,
+                publicKey: walletIdentity.publicKey,
+                partyId: walletIdentity.partyId,
                 hint: partyHint,
-                namespace,
+                namespace: walletIdentity.namespace,
             } as Wallet
 
             await store.addWallet(wallet)
@@ -464,7 +480,9 @@ export const userController = (
                 }
             } catch (error) {
                 logger.error(`Failed to add session: ${error}`)
-                throw new Error(`Failed to add session: ${error}`)
+                throw new Error(`Failed to add session: ${error}`, {
+                    cause: error,
+                })
             }
         },
         removeSession: async (): Promise<Null> => {
@@ -580,7 +598,14 @@ export const userController = (
                 return { added, removed: [] }
             } catch (error) {
                 logger.error(error, 'Failed to sync wallets')
-                return { added: [], removed: [] }
+                if (error instanceof Error) {
+                    throw new Error(`Wallet sync failed: ${error.message}`, {
+                        cause: error,
+                    })
+                }
+                throw new Error('Wallet sync failed: unknown error', {
+                    cause: error,
+                })
             }
         },
         isWalletSyncNeeded: async (): Promise<IsWalletSyncNeededResult> => {

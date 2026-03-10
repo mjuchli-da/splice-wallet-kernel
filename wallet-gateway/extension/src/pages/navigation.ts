@@ -55,8 +55,11 @@ export const redirectToIntendedOrDefault = (): void => {
 
 export const addUserSession = async (token: string, networkId: string) => {
     const authenticatedUserClient = createUserClient(token)
-    const session = await authenticatedUserClient.request('addSession', {
-        networkId,
+    const session = await authenticatedUserClient.request({
+        method: 'addSession',
+        params: {
+            networkId,
+        },
     })
     return session
 }

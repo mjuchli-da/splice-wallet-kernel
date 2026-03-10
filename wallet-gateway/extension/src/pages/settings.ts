@@ -75,19 +75,19 @@ export class SettingsPage extends LitElement {
 
     private async listNetworks() {
         const userClient = createUserClient(stateManager.accessToken.get())
-        const response = await userClient.request('listNetworks')
+        const response = await userClient.request({ method: 'listNetworks' })
         this.networks = response.networks as NetworkInfo[]
     }
 
     private async listSessions() {
         const userClient = createUserClient(stateManager.accessToken.get())
-        const response = await userClient.request('listSessions')
+        const response = await userClient.request({ method: 'listSessions' })
         this.sessions = response.sessions as SessionInfo[]
     }
 
     private async listIdps() {
         const userClient = createUserClient(stateManager.accessToken.get())
-        const response = await userClient.request('listIdps')
+        const response = await userClient.request({ method: 'listIdps' })
         this.idps = response.idps as IdpInfo[]
     }
 
@@ -109,7 +109,10 @@ export class SettingsPage extends LitElement {
 
         try {
             const userClient = createUserClient(stateManager.accessToken.get())
-            await userClient.request('addNetwork', { network })
+            await userClient.request({
+                method: 'addNetwork',
+                params: { network },
+            })
             await this.listNetworks()
         } catch (e) {
             console.error('Failed to save network:', e)
@@ -120,8 +123,11 @@ export class SettingsPage extends LitElement {
         if (!confirm(`Delete network "${e.network.name}"?`)) return
         try {
             const userClient = createUserClient(stateManager.accessToken.get())
-            await userClient.request('removeNetwork', {
-                networkName: e.network.id,
+            await userClient.request({
+                method: 'removeNetwork',
+                params: {
+                    networkName: e.network.id,
+                },
             })
             await this.listNetworks()
         } catch (e) {
@@ -132,7 +138,10 @@ export class SettingsPage extends LitElement {
     private handleIdpSubmit = async (ev: IdpAddEvent) => {
         try {
             const userClient = createUserClient(stateManager.accessToken.get())
-            await userClient.request('addIdp', { idp: ev.idp })
+            await userClient.request({
+                method: 'addIdp',
+                params: { idp: ev.idp },
+            })
             await this.listIdps()
         } catch (e) {
             console.error('Failed to add IDP:', e)
@@ -142,8 +151,11 @@ export class SettingsPage extends LitElement {
     private handleIdpDelete = async (ev: IdpCardDeleteEvent) => {
         try {
             const userClient = createUserClient(stateManager.accessToken.get())
-            await userClient.request('removeIdp', {
-                identityProviderId: ev.idp.id,
+            await userClient.request({
+                method: 'removeIdp',
+                params: {
+                    identityProviderId: ev.idp.id,
+                },
             })
             await this.listIdps()
         } catch (e) {

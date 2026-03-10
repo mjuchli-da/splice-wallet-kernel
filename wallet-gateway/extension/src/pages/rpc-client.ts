@@ -21,7 +21,7 @@ export const attemptRemoveSession = async (
         const userApiClient = new UserApiClient(
             new ExtensionTransport(accessToken)
         )
-        await userApiClient.request('removeSession')
+        await userApiClient.request({ method: 'removeSession' })
     } catch (error) {
         console.debug('Failed to remove session:', error)
     }
