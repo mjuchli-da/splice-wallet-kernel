@@ -198,7 +198,9 @@ export const dappController = (
             )
         },
         status: async () => {
-            const userUrl = Browser.runtime.getURL('pages/user.html#login')
+            // Use the root user page so extension routing decides login vs wallets
+            // based on persisted auth state, just like clicking the extension icon.
+            const userUrl = Browser.runtime.getURL('pages/user.html')
 
             if (!context || !(await store.getSession())) {
                 return {

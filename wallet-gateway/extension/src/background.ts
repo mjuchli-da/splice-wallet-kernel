@@ -230,14 +230,25 @@ Browser.runtime.onMessage.addListener((message) => {
         }
 
         if (message.type === WalletEvent.SPLICE_WALLET_EXT_OPEN) {
-            // Open wallet UI in a popup window
-            Browser.windows.create({
-                url: (message as SpliceMessage & { url: string }).url,
-                type: 'popup',
-                width: 400,
-                height: 600,
-            })
-            return Promise.resolve(null)
+            const targetUrl = (message as SpliceMessage & { url: string }).url
+
+            // Open wallet UI in a popup window. If popup creation fails
+            // (browser restrictions/permissions), fall back to a normal tab.
+            return Browser.windows
+                .create({
+                    url: targetUrl,
+                    type: 'popup',
+                    width: 400,
+                    height: 600,
+                })
+                .then(() => null)
+                .catch(async (error) => {
+                    logger.error(
+                        `Failed to open popup window, falling back to tab: ${error}`
+                    )
+                    await Browser.tabs.create({ url: targetUrl })
+                    return null
+                })
         }
 
         return Promise.resolve(null)

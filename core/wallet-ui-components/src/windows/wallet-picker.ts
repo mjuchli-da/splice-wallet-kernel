@@ -47,6 +47,9 @@ export async function pickWallet(
                     url: event.data.url,
                 }
                 window.removeEventListener('message', handler)
+                if (!win.closed) {
+                    win.close()
+                }
                 resolve(result)
             }
         }
