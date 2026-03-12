@@ -464,6 +464,13 @@ export class ExtensionStore implements Store, AuthAware<ExtensionStore> {
         return Array.from(txMap.values()).map(deserializeTransaction)
     }
 
+    async removeTransaction(commandId: string): Promise<void> {
+        this.assertConnected()
+        const txMap = await this.readTransactionMap()
+        txMap.delete(commandId)
+        await this.writeTransactionMap(txMap)
+    }
+
     // ─── Transaction storage helpers ────────────────────────────────────
 
     /**
