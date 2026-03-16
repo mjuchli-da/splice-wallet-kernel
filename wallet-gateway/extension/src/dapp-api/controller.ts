@@ -23,6 +23,42 @@ import type { Logger } from '../lib/logger'
 
 const EXTENSION_ID = 'splice-wallet-extension'
 
+async function readJsonResponseOrThrow(res: Response): Promise<unknown> {
+    const bodyText = await res.text()
+    if (!res.ok) {
+        throw new Error(`Ledger API ${res.status}: ${bodyText}`)
+    }
+    if (!bodyText) {
+        return {}
+    }
+    try {
+        return JSON.parse(bodyText)
+    } catch (error) {
+        throw new Error(`Invalid JSON from ledger API: ${bodyText}`, {
+            cause: error,
+        })
+    }
+}
+
+async function openExtensionPopupOrTab(
+    url: string,
+    logger: Logger
+): Promise<void> {
+    try {
+        await Browser.windows.create({
+            url,
+            type: 'popup',
+            width: 400,
+            height: 600,
+        })
+    } catch (error) {
+        logger.error(
+            `Failed to open approval popup, falling back to tab: ${error}`
+        )
+        await Browser.tabs.create({ url })
+    }
+}
+
 export const dappController = (
     store: Store,
     logger: Logger,
@@ -90,7 +126,7 @@ export const dappController = (
             switch (params.requestMethod) {
                 case 'GET': {
                     const res = await fetch(url, { headers })
-                    result = await res.json()
+                    result = await readJsonResponseOrThrow(res)
                     break
                 }
                 case 'POST': {
@@ -99,7 +135,7 @@ export const dappController = (
                         headers,
                         body: params.body || undefined,
                     })
-                    result = await res.json()
+                    result = await readJsonResponseOrThrow(res)
                     break
                 }
                 default:
@@ -126,6 +162,13 @@ export const dappController = (
             const userId = context.userId
             params.commandId = params.commandId || crypto.randomUUID()
             const commandId = params.commandId
+            const approveUrl = Browser.runtime.getURL(
+                `pages/user.html#approve?commandId=${commandId}`
+            )
+
+            // Open approval UI immediately to avoid UX lag and service-worker timing
+            // races; the approve page will load the transaction once persisted.
+            await openExtensionPopupOrTab(approveUrl, logger)
 
             // Determine synchronizer ID
             let synchronizerId = network.synchronizerId
@@ -139,11 +182,19 @@ export const dappController = (
                             },
                         }
                     )
-                    const data = await res.json()
+                    const data = (await readJsonResponseOrThrow(res)) as {
+                        synchronizerId?: string
+                    }
                     synchronizerId = data.synchronizerId
-                } catch {
-                    synchronizerId = ''
+                } catch (error) {
+                    throw new Error('Failed to resolve synchronizer ID', {
+                        cause: error,
+                    })
                 }
+            }
+
+            if (!synchronizerId) {
+                throw new Error('Missing synchronizer ID for prepareExecute')
             }
 
             // Prepare submission via ledger API
@@ -155,6 +206,7 @@ export const dappController = (
                 commands: params.commands,
                 disclosedContracts: params.disclosedContracts || [],
                 synchronizerId,
+                verboseHashing: false,
                 packageIdSelectionPreference:
                     params.packageIdSelectionPreference || [],
             }
@@ -170,24 +222,33 @@ export const dappController = (
                     body: JSON.stringify(prepareBody),
                 }
             )
-            const prepareResult = await res.json()
+            const prepareResult = (await readJsonResponseOrThrow(res)) as {
+                preparedTransaction?: string
+                preparedTransactionHash?: string
+            }
+
+            if (
+                !prepareResult.preparedTransaction ||
+                !prepareResult.preparedTransactionHash
+            ) {
+                throw new Error(
+                    `Missing prepared transaction fields: ${JSON.stringify(
+                        prepareResult
+                    )}`
+                )
+            }
 
             const transaction: Transaction = {
                 commandId,
                 status: 'pending',
-                preparedTransaction: prepareResult.preparedTransaction || '',
-                preparedTransactionHash:
-                    prepareResult.preparedTransactionHash || '',
+                preparedTransaction: prepareResult.preparedTransaction,
+                preparedTransactionHash: prepareResult.preparedTransactionHash,
                 payload: params,
                 origin: origin || null,
                 createdAt: new Date(),
             }
 
-            store.setTransaction(transaction)
-
-            const approveUrl = Browser.runtime.getURL(
-                `pages/user.html#approve?commandId=${commandId}`
-            )
+            await store.setTransaction(transaction)
             return {
                 userUrl: approveUrl,
             }

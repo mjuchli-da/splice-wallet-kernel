@@ -21,6 +21,7 @@ export class ApprovePage extends LitElement {
     @state() accessor createdAt: string | null = null
     @state() accessor signedAt: string | null = null
     @state() accessor origin: string | null = null
+    @state() accessor loadAttempts = 0
 
     static styles = css`
         :host {
@@ -160,8 +161,20 @@ export class ApprovePage extends LitElement {
             } catch {
                 this.txParsed = null
             }
+            this.loadAttempts = 0
         } catch (e) {
             console.error('Failed to load transaction:', e)
+            if (
+                e instanceof Error &&
+                e.message.includes('Transaction not found') &&
+                this.loadAttempts < 10
+            ) {
+                this.loadAttempts++
+                this.messageType = 'info'
+                this.message = 'Waiting for transaction data...'
+                window.setTimeout(() => this.updateState(), 500)
+                return
+            }
         }
 
         try {

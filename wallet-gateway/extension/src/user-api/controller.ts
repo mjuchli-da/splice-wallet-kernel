@@ -46,6 +46,23 @@ type AvailableSigningDrivers = Partial<
     Record<SigningProvider, SigningDriverInterface>
 >
 
+async function readJsonResponseOrThrow(res: Response): Promise<unknown> {
+    const bodyText = await res.text()
+    if (!res.ok) {
+        throw new Error(`Ledger API ${res.status}: ${bodyText}`)
+    }
+    if (!bodyText) {
+        return {}
+    }
+    try {
+        return JSON.parse(bodyText)
+    } catch (error) {
+        throw new Error(`Invalid JSON from ledger API: ${bodyText}`, {
+            cause: error,
+        })
+    }
+}
+
 export const userController = (
     store: Store,
     authContext: AuthContext | undefined,
@@ -332,7 +349,7 @@ export const userController = (
                                 }),
                             }
                         )
-                        const result = await res.json()
+                        const result = await readJsonResponseOrThrow(res)
 
                         const executedTx: Transaction = {
                             commandId,
@@ -395,7 +412,7 @@ export const userController = (
                             }),
                         }
                     )
-                    const result = await res.json()
+                    const result = await readJsonResponseOrThrow(res)
 
                     const executedTx: Transaction = {
                         commandId,
